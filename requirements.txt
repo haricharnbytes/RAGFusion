@@ -1,8 +1,6 @@
-# Core Streamlit dependency
 streamlit
-
-# Google AI and LangChain dependencies
 google-generativeai
+
 langchain
 langchain-google-genai
 langchain-chroma
@@ -10,12 +8,9 @@ langchain-community
 langchain-core
 langchain-text-splitters
 
-# Vector Database
 chromadb
 
-# Document Processing
 pypdf
 pymupdf
 
-# Environment and Configuration
 python-dotenv
