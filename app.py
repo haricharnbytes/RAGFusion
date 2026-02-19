@@ -3,8 +3,10 @@ import base64
 from typing import List, Dict, Any
 import uuid
 import hashlib
+import warnings
+warnings.filterwarnings("ignore")
 
-# LangChain imports for 2025 updates
+# LangChain imports
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
@@ -23,3 +25,27 @@ try:
 except ImportError:
     PYMUPDF_AVAILABLE = False
     print("Warning: PyMuPDF not available. PDF image extraction disabled. Install with: pip install PyMuPDF")
+
+
+import google.generativeai as genai
+
+class MultimodalRAGSystem:
+
+    def __init__(self, google_api_key: str, persist_directory: str = "./chroma_db_v2", 
+                 main_model: str = "gemini-1.5-pro", vision_model: str = "gemini-1.5-flash", 
+                 embedding_model: str = "models/text-embedding-004", temperature: float = 0.1, 
+                 max_tokens: int = 8192):
+        """
+        Initialize the Multimodal RAG system
+        
+        Args:
+            google_api_key: Google API key for Gemini
+            persist_directory: Directory to persist vector database
+            main_model: Main LLM model for text generation
+            vision_model: Vision model for image processing
+            embedding_model: Embedding model for vector embeddings
+            temperature: Temperature for model responses
+            max_tokens: Maximum tokens for model responses
+        """
+        self.google_api_key = google_api_key
+        self.persist_directory = persist_directory
