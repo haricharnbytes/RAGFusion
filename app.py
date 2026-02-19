@@ -49,3 +49,7 @@ class MultimodalRAGSystem:
         """
         self.google_api_key = google_api_key
         self.persist_directory = persist_directory
+
+        # Configure Google AI
+        genai.configure(api_key=google_api_key)
+        os.environ["GOOGLE_API_KEY"] = google_api_key
