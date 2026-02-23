@@ -255,3 +255,74 @@ class MultimodalRAGSystem:
                 print(f"Error processing image {image_path}: {str(e)}")
         
         return processed_images
+    
+    def _generate_enhanced_image_description(self, image_data: bytes) -> str:
+        """Generate detailed description using latest Gemini vision model capabilities."""
+        try:
+            # Convert to base64 for API
+            image_b64 = base64.b64encode(image_data).decode()
+            
+            prompt = """
+            Analyze this image comprehensively and provide a detailed description that includes:
+            
+            1. **Main Content**: Objects, people, scenes, activities
+            2. **Visual Elements**: Colors, composition, style, lighting
+            3. **Text Content**: Any visible text, signs, labels, captions
+            4. **Context & Setting**: Environment, location, time period if apparent
+            5. **Technical Details**: Charts, graphs, diagrams, technical elements
+            6. **Relationships**: How elements in the image relate to each other
+            7. **Actionable Information**: Key insights or data points visible
+            
+            Format your response to be detailed yet concise, optimized for retrieval and understanding.
+            Focus on information that would be valuable for question-answering scenarios.
+            """
+            
+            # Use latest vision model with correct message format
+            
+            message = HumanMessage(
+                content=[
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                ]
+            )
+            
+            response = self.vision_model.invoke([message])
+            
+            return response.content
+            
+        except Exception as e:
+            print(f"Error generating enhanced image description: {str(e)}")
+            return "Error generating image description"
+    
+    def _extract_text_from_image(self, image_data: bytes) -> str:
+        """Extract text content from images using Gemini OCR capabilities."""
+        try:
+            image_b64 = base64.b64encode(image_data).decode()
+            
+            prompt = """
+            Extract all visible text from this image. Include:
+            - Any readable text, numbers, labels
+            - Text in charts, graphs, diagrams
+            - Signs, captions, headers
+            - Technical annotations
+            
+            Provide only the extracted text content, maintaining structure where possible.
+            If no text is visible, respond with "No text detected".
+            """
+            
+            
+            message = HumanMessage(
+                content=[
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                ]
+            )
+            
+            response = self.vision_model.invoke([message])
+            
+            return response.content
+            
+        except Exception as e:
+            print(f"Error extracting text from image: {str(e)}")
+            return "No text detected"
+    
