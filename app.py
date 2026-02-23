@@ -53,3 +53,17 @@ class MultimodalRAGSystem:
         # Configure Google AI
         genai.configure(api_key=google_api_key)
         os.environ["GOOGLE_API_KEY"] = google_api_key
+
+        # Initialize Gemini models with configurable parameters
+        self.llm = ChatGoogleGenerativeAI(
+            model=main_model,
+            google_api_key=google_api_key,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+        # Vision model for image processing
+        self.vision_model = ChatGoogleGenerativeAI(
+            model=vision_model,
+            google_api_key=google_api_key,
+            temperature=temperature
+        )
