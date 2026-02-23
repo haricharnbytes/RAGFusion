@@ -81,3 +81,26 @@ class MultimodalRAGSystem:
             length_function=len,
             separators=["\n\n", "\n", ". ", " ", ""]
         )
+
+        # Multi-vector retriever components
+        self.vectorstore = None
+        self.retriever = None
+        self.doc_store = InMemoryByteStore()
+        self.image_metadata = {}
+
+        def setup_multi_vector_retriever(self):
+            """Setup the multi-vector retriever with enhanced capabilities."""
+        if not self.vectorstore:
+            self.vectorstore = Chroma(
+                persist_directory=self.persist_directory,
+                embedding_function=self.embeddings,
+                collection_name="multimodal_rag_v2"
+            )
+        
+        # Initialize multi-vector retriever with latest pattern
+        self.retriever = MultiVectorRetriever(
+            vectorstore=self.vectorstore,
+            byte_store=self.doc_store,
+            id_key="doc_id",
+            search_kwargs={"k": 6}  # Retrieve more candidates
+        )
