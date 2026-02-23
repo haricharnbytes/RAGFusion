@@ -67,3 +67,17 @@ class MultimodalRAGSystem:
             google_api_key=google_api_key,
             temperature=temperature
         )
+
+        # Embedding model for vector embeddings
+        self.embeddings = GoogleGenerativeAIEmbeddings(
+            model=embedding_model,
+            google_api_key=google_api_key
+        )
+        
+        # text splitter with better chunking strategy
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1500,  # Increased for better context
+            chunk_overlap=300,  # Better overlap for continuity
+            length_function=len,
+            separators=["\n\n", "\n", ". ", " ", ""]
+        )
