@@ -104,3 +104,55 @@ class MultimodalRAGSystem:
             id_key="doc_id",
             search_kwargs={"k": 6}  # Retrieve more candidates
         )
+
+
+        def parse_documents(self, file_paths: List[str]) -> Dict[str, List]:
+            """
+        Parse documents using basic document loaders.
+        
+        Args:
+            file_paths: List of file paths to parse
+            
+        Returns:
+            Dictionary containing separated elements (text, tables, images)
+        """
+        all_elements = {"texts": [], "tables": [], "images": []}
+        
+        for file_path in file_paths:
+            try:
+                if file_path.endswith('.pdf'):
+                    # Extract text using PyPDF
+                    loader = PyPDFLoader(file_path)
+                    docs = loader.load()
+                    
+                    for doc in docs:
+                        all_elements["texts"].append({
+                            "content": doc.page_content,
+                            "metadata": {"source": file_path, "type": "text", "page": doc.metadata.get("page", 0)}
+                        })
+                    
+                    # Extract images from PDF using PyMuPDF (if available)
+                    if PYMUPDF_AVAILABLE:
+                        pdf_images = self._extract_images_from_pdf(file_path)
+                        all_elements["images"].extend(pdf_images)
+                    else:
+                        print(f"Skipping image extraction from {file_path} - PyMuPDF not installed")
+                    
+                elif file_path.endswith('.txt'):
+                    loader = TextLoader(file_path)
+                    docs = loader.load()
+                    
+                    for doc in docs:
+                        all_elements["texts"].append({
+                            "content": doc.page_content,
+                            "metadata": {"source": file_path, "type": "text", "page": 0}
+                        })
+                else:
+                    continue
+                    
+            except Exception as e:
+                print(f"Error parsing {file_path}: {str(e)}")
+        
+        return all_elements
+
+        
