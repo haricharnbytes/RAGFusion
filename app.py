@@ -154,5 +154,104 @@ class MultimodalRAGSystem:
                 print(f"Error parsing {file_path}: {str(e)}")
         
         return all_elements
-
+    
+    def _extract_images_from_pdf(self, pdf_path: str) -> List[Dict]:
+        """
+        Extract images from PDF using PyMuPDF.
         
+        Args:
+            pdf_path: Path to PDF file
+            
+        Returns:
+            List of extracted image data
+        """
+        extracted_images = []
+        
+        if not PYMUPDF_AVAILABLE:
+            print("PyMuPDF not available - cannot extract images from PDF")
+            return extracted_images
+        
+        try:
+            doc = fitz.open(pdf_path)
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                image_list = page.get_images()
+                
+                for img_index, img in enumerate(image_list):
+                    xref = img[0]
+                    base_image = doc.extract_image(xref)
+                    image_bytes = base_image["image"]
+                    image_ext = base_image["ext"]
+                    
+                    # Create unique identifier
+                    image_hash = hashlib.md5(image_bytes).hexdigest()
+                    
+                    extracted_images.append({
+                        "content": image_bytes,
+                        "metadata": {
+                            "source": pdf_path,
+                            "type": "image",
+                            "page": page_num + 1,
+                            "image_index": img_index,
+                            "extension": image_ext,
+                            "hash": image_hash
+                        }
+                    })
+                    
+                    print(f"Extracted image {img_index + 1} from page {page_num + 1} of {pdf_path}")
+            
+            doc.close()
+            
+        except Exception as e:
+            print(f"Error extracting images from PDF {pdf_path}: {str(e)}")
+        
+        return extracted_images
+    
+    def process_images_advanced(self, image_paths: List[str]) -> List[Dict]:
+        """
+        Image processing Gemini Vision Model.
+        
+        Args:
+            image_paths: List of image file paths
+            
+        Returns:
+            List of processed image data
+        """
+        processed_images = []
+        
+        for image_path in image_paths:
+            try:
+                # Load and process image
+                with open(image_path, 'rb') as img_file:
+                    image_data = img_file.read()
+                
+                # Create image hash for unique identification
+                image_hash = hashlib.md5(image_data).hexdigest()
+                
+                # Image description with Gemini LLM
+                description = self._generate_enhanced_image_description(image_data)
+                
+                # Extract any text from the image
+                text_content = self._extract_text_from_image(image_data)
+                
+                processed_image = {
+                    "path": image_path,
+                    "hash": image_hash,
+                    "description": description,
+                    "text_content": text_content,
+                    "type": "image",
+                    "metadata": {
+                        "source": image_path,
+                        "type": "image",
+                        "hash": image_hash
+                    }
+                }
+                
+                processed_images.append(processed_image)
+                print(f"Processed image: {image_path}")
+                
+            except Exception as e:
+                print(f"Error processing image {image_path}: {str(e)}")
+        
+        return processed_images
