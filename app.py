@@ -384,3 +384,111 @@ class MultimodalRAGSystem:
                 summaries.append(str(element.get("content", ""))[:500])
         
         return summaries
+    
+    def build_enhanced_vector_database(self, file_paths: List[str], image_paths: List[str]):
+        """
+        Build enhanced vector database with multi-vector retrieval capabilities.
+        
+        Args:
+            file_paths: List of document file paths
+            image_paths: List of image file paths
+        """
+        # Setup multi-vector retriever
+        self.setup_multi_vector_retriever()
+        
+        # Parse documents using basic extraction
+        parsed_elements = self.parse_documents(file_paths)
+        
+        # Process standalone image files
+        processed_images = self.process_images_advanced(image_paths)
+        
+        # Process images extracted from PDFs
+        pdf_extracted_images = []
+        for img_data in parsed_elements["images"]:
+            try:
+                # Generate description for PDF-extracted image
+                description = self._generate_enhanced_image_description(img_data["content"])
+                text_content = self._extract_text_from_image(img_data["content"])
+                
+                processed_img = {
+                    "description": description,
+                    "text_content": text_content,
+                    "metadata": img_data["metadata"]
+                }
+                pdf_extracted_images.append(processed_img)
+                print(f"Processed extracted image from {img_data['metadata']['source']} (page {img_data['metadata']['page']})")
+            except Exception as e:
+                print(f"Error processing extracted image: {str(e)}")
+        
+        # Combine all elements
+        all_elements = []
+        
+        # Add text elements
+        for text_elem in parsed_elements["texts"]:
+            all_elements.append(text_elem)
+        
+        # Add table elements
+        for table_elem in parsed_elements["tables"]:
+            all_elements.append(table_elem)
+        
+        # Add standalone image elements
+        for img_elem in processed_images:
+            all_elements.append({
+                "content": img_elem["description"],
+                "metadata": img_elem["metadata"],
+                "original_data": img_elem
+            })
+            
+        # Add PDF-extracted image elements
+        for img_elem in pdf_extracted_images:
+            all_elements.append({
+                "content": img_elem["description"],
+                "metadata": img_elem["metadata"]
+            })
+        
+        if not all_elements:
+            print("No elements to process")
+            return
+        
+        # Create summaries optimized for retrieval
+        summaries = self.create_summaries_for_retrieval(all_elements)
+        
+        # Generate unique IDs for parent documents
+        doc_ids = [str(uuid.uuid4()) for _ in all_elements]
+        
+        # Create summary documents for vector store
+        summary_docs = []
+        for i, (summary, element) in enumerate(zip(summaries, all_elements)):
+            doc = Document(
+                page_content=summary,
+                metadata={
+                    "doc_id": doc_ids[i],
+                    "source": element["metadata"].get("source", "unknown"),
+                    "type": element["metadata"].get("type", "text")
+                }
+            )
+            summary_docs.append(doc)
+        
+        # Add summaries to vector store
+        self.retriever.vectorstore.add_documents(summary_docs)
+        
+        # Store original documents in doc store
+        doc_pairs = []
+        for i, element in enumerate(all_elements):
+            original_doc = Document(
+                page_content=element["content"],
+                metadata=element["metadata"]
+            )
+            if "original_data" in element:
+                original_doc.metadata["original_data"] = element["original_data"]
+            
+            doc_pairs.append((doc_ids[i], original_doc))
+        
+        self.retriever.docstore.mset(doc_pairs)
+        
+        # ChromaDB auto-persists, no need for manual persist() call
+        
+        print(f"Enhanced vector database built with {len(all_elements)} elements")
+        print(f"- Text elements: {len(parsed_elements['texts'])}")
+        print(f"- Table elements: {len(parsed_elements['tables'])}")
+        print(f"- Image elements: {len(processed_images)}")
