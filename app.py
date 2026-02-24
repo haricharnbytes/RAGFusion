@@ -492,3 +492,137 @@ class MultimodalRAGSystem:
         print(f"- Text elements: {len(parsed_elements['texts'])}")
         print(f"- Table elements: {len(parsed_elements['tables'])}")
         print(f"- Image elements: {len(processed_images)}")
+
+    def retrieve_multimodal_context(self, query: str, k: int = 6) -> List[Document]:
+        """
+        Retrieve relevant multimodal context using multi-vector retrieval.
+        
+        Args:
+            query: User query
+            k: Number of documents to retrieve
+            
+        Returns:
+            List of relevant documents
+        """
+        if not self.retriever:
+            print("Multi-vector retriever not initialized")
+            return []
+        
+        try:
+            # Use multi-vector retriever
+            relevant_docs = self.retriever.invoke(query)
+            return relevant_docs[:k]
+            
+        except Exception as e:
+            print(f"Error retrieving context: {str(e)}")
+            return []
+    
+    def generate_advanced_response(self, query: str, context_docs: List[Document]) -> Dict[str, Any]:
+        """
+        Generate advanced response using Gemini LLM with multimodal context.
+        
+        Args:
+            query: User query
+            context_docs: Retrieved context documents
+            
+        Returns:
+            Dictionary with response and metadata
+        """
+        try:
+            # Prepare multimodal context
+            text_context = []
+            image_references = []
+            table_context = []
+            
+            for doc in context_docs:
+                doc_type = doc.metadata.get("type", "text")
+                source = doc.metadata.get("source", "unknown")
+                
+                if doc_type == "image":
+                    image_references.append({
+                        "source": source,
+                        "description": doc.page_content
+                    })
+                elif doc_type == "table":
+                    table_context.append({
+                        "source": source,
+                        "content": doc.page_content
+                    })
+                else:
+                    text_context.append({
+                        "source": source,
+                        "content": doc.page_content
+                    })
+            
+            # Create enhanced prompt template
+            prompt_template = ChatPromptTemplate.from_template("""
+            You are an advanced AI assistant with multimodal reasoning capabilities. Answer the user's question using the provided context from various sources including text documents, tables, and image descriptions.
+
+            ## Text Context:
+            {text_context}
+
+            ## Table Context:
+            {table_context}
+
+            ## Image Context:
+            {image_context}
+
+            ## User Question:
+            {question}
+
+            ## Instructions:
+            1. Provide a comprehensive, accurate answer based on the context
+            2. Synthesize information across different modalities when relevant
+            3. Cite specific sources when referencing information
+            4. If information comes from images, mention that it's from visual analysis
+            5. If referencing tables, mention specific data points
+            6. Be precise and detailed in your response
+            7. If the context doesn't contain sufficient information, state this clearly
+
+            ## Response:
+            """)
+            
+            # Format context for prompt
+            text_ctx = "\n\n".join([f"Source: {item['source']}\nContent: {item['content']}" for item in text_context])
+            table_ctx = "\n\n".join([f"Source: {item['source']}\nTable: {item['content']}" for item in table_context])
+            image_ctx = "\n\n".join([f"Source: {item['source']}\nDescription: {item['description']}" for item in image_references])
+            
+            # Create chain
+            chain = prompt_template | self.llm | StrOutputParser()
+            
+            # Generate response
+            response = chain.invoke({
+                "text_context": text_ctx or "No text context available",
+                "table_context": table_ctx or "No table context available", 
+                "image_context": image_ctx or "No image context available",
+                "question": query
+            })
+            
+            # Prepare metadata
+            sources = []
+            for doc in context_docs:
+                sources.append({
+                    "source": doc.metadata.get("source", "unknown"),
+                    "type": doc.metadata.get("type", "text"),
+                    "preview": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
+                })
+            
+            return {
+                "response": response,
+                "sources": sources,
+                "retrieved_docs": len(context_docs),
+                "multimodal_summary": {
+                    "text_sources": len(text_context),
+                    "table_sources": len(table_context),
+                    "image_sources": len(image_references)
+                }
+            }
+            
+        except Exception as e:
+            print(f"Error generating response: {str(e)}")
+            return {
+                "response": "I encountered an error while generating the response.",
+                "sources": [],
+                "retrieved_docs": 0,
+                "multimodal_summary": {"text_sources": 0, "table_sources": 0, "image_sources": 0}
+            }
