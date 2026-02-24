@@ -626,3 +626,28 @@ class MultimodalRAGSystem:
                 "retrieved_docs": 0,
                 "multimodal_summary": {"text_sources": 0, "table_sources": 0, "image_sources": 0}
             }
+    
+    def query(self, question: str, k: int = 6) -> Dict[str, Any]:
+        """
+        Main query method with enhanced multimodal capabilities.
+        
+        Args:
+            question: User question
+            k: Number of documents to retrieve
+            
+        Returns:
+            Dictionary containing response and metadata
+        """
+        # Retrieve relevant multimodal context
+        relevant_docs = self.retrieve_multimodal_context(question, k=k)
+        
+        if not relevant_docs:
+            return {
+                "response": "I couldn't find relevant information to answer your question.",
+                "sources": [],
+                "retrieved_docs": 0,
+                "multimodal_summary": {"text_sources": 0, "table_sources": 0, "image_sources": 0}
+            }
+        
+        # Generate advanced response
+        return self.generate_advanced_response(question, relevant_docs)
