@@ -16,6 +16,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
 from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_core.stores import InMemoryByteStore
 
 
 # Document parsing (using PyPDF and PyMuPDF for image extraction)
@@ -325,4 +326,61 @@ class MultimodalRAGSystem:
         except Exception as e:
             print(f"Error extracting text from image: {str(e)}")
             return "No text detected"
-    
+        
+
+    def create_summaries_for_retrieval(self, elements: List[Dict]) -> List[str]:
+        """
+        Create optimized summaries for better retrieval using Gemini LLM.
+        
+        Args:
+            elements: List of elements (text, table, image data)
+            
+        Returns:
+            List of summaries optimized for retrieval
+        """
+        summaries = []
+        
+        for element in elements:
+            try:
+                content = element.get("content", "")
+                element_type = element.get("metadata", {}).get("type", "text")
+                
+                if element_type == "table":
+                    prompt = f"""
+                    Summarize this table for optimal retrieval. Focus on:
+                    - Key data points and metrics
+                    - Column headers and categories
+                    - Notable trends or patterns
+                    - Actionable insights
+                    
+                    Table content:
+                    {content[:2000]}  # Limit content length
+                    
+                    Provide a concise summary optimized for semantic search.
+                    """
+                elif element_type == "image":
+                    # For images, use the description we already generated
+                    summaries.append(content)
+                    continue
+                else:
+                    prompt = f"""
+                    Create a retrieval-optimized summary of this text. Include:
+                    - Main topics and themes
+                    - Key facts and figures
+                    - Important concepts
+                    - Actionable information
+                    
+                    Text content:
+                    {content[:2000]}
+                    
+                    Provide a comprehensive yet concise summary.
+                    """
+                
+                response = self.llm.invoke(prompt)
+                summaries.append(response.content)
+                
+            except Exception as e:
+                print(f"Error creating summary: {str(e)}")
+                summaries.append(str(element.get("content", ""))[:500])
+        
+        return summaries
